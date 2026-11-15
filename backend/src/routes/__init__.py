@@ -10,6 +10,7 @@ from src.routes.exports import router as exports_router
 from src.routes.health import router as health_router
 from src.routes.metrics import router as metrics_router
 from src.routes.overview import router as overview_router
+from src.routes.refreshes import router as refreshes_router
 from src.routes.reports import router as reports_router
 from src.routes.runs import router as runs_router
 
@@ -23,5 +24,6 @@ api_router.include_router(reports_router)
 api_router.include_router(conflicts_router)
 api_router.include_router(change_requests_router)
 api_router.include_router(runs_router)
+api_router.include_router(refreshes_router)
 api_router.include_router(exports_router)
 api_router.include_router(audit_router)

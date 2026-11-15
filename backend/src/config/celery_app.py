@@ -8,6 +8,7 @@ from src.config.settings import settings
 
 TASK_HEARTBEAT = f"{settings.app_name}.heartbeat"
 TASK_DAILY = f"{settings.app_name}.daily_refresh"
+TASK_MONTHLY_REFRESH = f"{settings.app_name}.monthly_refresh"
 
 celery_app = Celery(
     settings.app_name,
@@ -31,4 +32,9 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     f"{settings.app_name}-heartbeat": {"task": TASK_HEARTBEAT, "schedule": 10.0},
     f"{settings.app_name}-daily": {"task": TASK_DAILY, "schedule": crontab(hour=7, minute=40)},
+    # 每月 1 日 08:10 按已批准的变更单展开下游并重算
+    f"{settings.app_name}-monthly": {
+        "task": TASK_MONTHLY_REFRESH,
+        "schedule": crontab(day_of_month=1, hour=8, minute=10),
+    },
 }

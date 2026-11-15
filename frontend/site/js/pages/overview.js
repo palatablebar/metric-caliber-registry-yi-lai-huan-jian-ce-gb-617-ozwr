@@ -105,12 +105,37 @@ export const overviewPage = {
         </section>
       </div>
       <section class="panel">
+        <div class="panel-head">
+          <h2>最近月结刷新</h2>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="meta">refresh</span>
+            <button class="btn sm ghost" id="goto-refreshes">查看刷新记录</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${
+            data.latest_refresh
+              ? `<dl class="kv">
+                  <dt>刷新号</dt><dd class="mono">${esc(data.latest_refresh.refresh_no)}</dd>
+                  <dt>周期 / 状态</dt><dd>${esc(data.latest_refresh.period)} · ${esc(data.latest_refresh.status_label)}</dd>
+                  <dt>开始</dt><dd>${fmtTime(data.latest_refresh.started_at)}</dd>
+                  <dt>下游闭包</dt><dd>${esc(data.latest_refresh.closure_count)} 个指标 / ${esc(data.latest_refresh.wave_count)} 波</dd>
+                  <dt>重算 / 隔离</dt><dd>${esc(data.latest_refresh.refreshed_count)} 个 / ${esc(data.latest_refresh.isolated_count)} 个分支</dd>
+                </dl>`
+              : emptyState({ title: '还没有月结刷新', hint: '在「月结刷新」选一个上游字段或基础指标，预览下游后执行。' })
+          }
+        </div>
+      </section>
+      <section class="panel">
         <div class="panel-head"><h2>近 7 天校验运行</h2><span class="meta">runs / day</span></div>
         <div class="panel-body">${trendChart(data.trend)}</div>
       </section>`;
 
     view.querySelector('#goto-conflicts')?.addEventListener('click', () => {
       location.hash = '#/conflicts';
+    });
+    view.querySelector('#goto-refreshes')?.addEventListener('click', () => {
+      location.hash = '#/refreshes';
     });
     view.querySelectorAll('table.data tbody tr').forEach((row) => {
       row.addEventListener('click', () => {

@@ -11,15 +11,17 @@ from src.constants.enums import (
     CHANGE_STATUS_LABELS,
     CONFLICT_KIND_LABELS,
     METRIC_DOMAIN_LABELS,
+    REFRESH_STATUS_LABELS,
     RUN_STATUS_LABELS,
     SEVERITY_LABELS,
     ChangeStatus,
 )
 from src.models.change_request import ChangeRequest
 from src.models.metric import Metric
+from src.models.refresh import RefreshBatch
 from src.models.report import Report
 from src.models.run import Run
-from src.services import graph_service
+from src.services import graph_service, refresh_service
 from src.utils.timeutil import local_now, utcnow
 
 
@@ -54,6 +56,8 @@ def overview(db: Session) -> dict:
     for item in summary["conflicts"]:
         kind_counter[item["kind"]] = kind_counter.get(item["kind"], 0) + 1
     latest_run = db.scalar(select(Run).order_by(Run.id.desc()).limit(1))
+    latest_refresh = db.scalar(select(RefreshBatch).order_by(RefreshBatch.id.desc()).limit(1))
+    latest_metrics = (latest_refresh.metrics or {}) if latest_refresh else {}
 
     since = utcnow() - timedelta(days=7)
     recent_runs = db.scalars(select(Run).where(Run.started_at >= since)).all()
@@ -79,6 +83,8 @@ def overview(db: Session) -> dict:
         "parse_error_count": summary["parse_error_count"],
         "high_risk": severity_counter.get("high", 0),
         "pending_changes": pending_changes,
+        "refreshes_total": refresh_service.status_counts(db)["total"],
+        "isolated_total": latest_metrics.get("isolated_count", 0),
         "worker_alive": worker_alive(),
         "severity": [
             {"key": key, "label": SEVERITY_LABELS.get(key, key), "count": severity_counter.get(key, 0)}
@@ -116,6 +122,24 @@ def overview(db: Session) -> dict:
             for item in summary["conflicts"][:5]
         ],
         "cycle_paths": [" → ".join(item["path"]) for item in summary["cycles"]],
+        "latest_refresh": (
+            {
+                "id": latest_refresh.id,
+                "refresh_no": latest_refresh.refresh_no,
+                "period": latest_refresh.period,
+                "status": latest_refresh.status,
+                "status_label": REFRESH_STATUS_LABELS.get(latest_refresh.status, latest_refresh.status),
+                "started_at": latest_refresh.started_at.isoformat(timespec="seconds") + "Z"
+                if latest_refresh.started_at
+                else None,
+                "closure_count": latest_metrics.get("closure_count", 0),
+                "wave_count": latest_metrics.get("wave_count", 0),
+                "isolated_count": latest_metrics.get("isolated_count", 0),
+                "refreshed_count": latest_metrics.get("refreshed_count", 0),
+            }
+            if latest_refresh
+            else None
+        ),
         "latest_run": (
             {
                 "id": latest_run.id,

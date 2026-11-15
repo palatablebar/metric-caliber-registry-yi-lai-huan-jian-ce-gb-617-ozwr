@@ -9,6 +9,8 @@ ACTIONS: dict[str, str] = {
     "formula.save": "保存口径版本",
     "run.create": "发起校验运行",
     "run.complete": "校验运行完成",
+    "refresh.create": "发起月结刷新",
+    "refresh.reuse": "复用月结刷新",
     "change.create": "提交变更单",
     "change.approve": "批准变更单",
     "change.reject": "驳回变更单",
@@ -16,5 +18,6 @@ ACTIONS: dict[str, str] = {
     "export.conflicts": "导出冲突与影响面",
     "export.changes": "导出变更单",
     "export.runs": "导出运行记录",
+    "export.refreshes": "导出刷新记录",
     "http.mutation": "写请求",
 }

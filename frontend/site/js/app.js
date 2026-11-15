@@ -7,6 +7,7 @@ import overviewPage from './pages/overview.js';
 import metricsPage from './pages/metrics.js';
 import graphPage from './pages/graph.js';
 import conflictsPage from './pages/conflicts.js';
+import refreshesPage from './pages/refreshes.js';
 import changesPage from './pages/changes.js';
 
 const routes = [
@@ -14,6 +15,7 @@ const routes = [
   { path: '#/metrics', page: metricsPage, permission: 'metric:read' },
   { path: '#/graph', page: graphPage, permission: 'dependency:read' },
   { path: '#/conflicts', page: conflictsPage, permission: 'conflict:read' },
+  { path: '#/refreshes', page: refreshesPage, permission: 'refresh:read' },
   { path: '#/changes', page: changesPage, permission: 'change:read' },
 ];
 

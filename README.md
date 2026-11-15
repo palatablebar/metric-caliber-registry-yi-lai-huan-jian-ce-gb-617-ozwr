@@ -41,7 +41,8 @@
 | ③ | 依赖图与环检测（算法 B） | 依赖图 | `graph_analysis` + `graph_service` + `dependency_service` + `dependency_controller` | `GET /api/graph`、`GET /api/cycles`、`GET /api/dependencies` |
 | ④ | 口径冲突与影响面（算法 B） | 冲突与影响面 | `graph_analysis` + `graph_service` + `conflict_controller` | `GET /api/conflicts`、`GET /api/conflicts/{id}`、`GET /api/impact` |
 | ⑤ | 变更单与审批 | 变更单与导出 | `change_service` + `change_controller` | `GET/POST /api/change-requests`、`PATCH /api/change-requests/{id}` |
-| ⑥ | 报表登记与导出 | 变更单与导出（导出卡片）/ 冲突页导出按钮 | `report_service` + `export_service` + `export_controller` | `GET /api/reports`、`GET /api/exports/{metrics,conflicts,change-requests,runs}.csv` |
+| ⑥ | 报表登记与导出 | 变更单与导出（导出卡片）/ 冲突页导出按钮 | `report_service` + `export_service` + `export_controller` | `GET /api/reports`、`GET /api/exports/{metrics,conflicts,change-requests,runs,refreshes}.csv` |
+| ⑦ | 月结刷新编排 | 月结刷新 | `refresh_analysis` + `refresh_service` + `refresh_controller` | `GET/POST /api/refreshes`、`GET /api/refreshes/options`、`POST /api/refreshes/preview`、`GET /api/refreshes/{id}` |
 
 横切能力（不计入业务模块）：登录（JWT）、审计、限流、worker 心跳、总览。
 
@@ -54,6 +55,9 @@
 | `Dependency` 依赖边 | `dependencies` | `models/dependency.py` | 只读出参（dict） | `dependency_service` | `dependency_controller` / `routes/dependencies.py` | `pages/graph.js` |
 | `Report` 报表 | `reports` | `models/report.py` | 只读出参（dict） | `report_service` | `report_controller` / `routes/reports.py` | `pages/graph.js` / `pages/conflicts.js` |
 | `ChangeRequest` 变更单 | `change_requests` | `models/change_request.py` | `schemas/change.py` | `change_service` | `change_controller` / `routes/change_requests.py` | `pages/changes.js` |
+| `RefreshBatch` 刷新批次 | `refresh_batches` | `models/refresh.py` | `schemas/refresh.py` | `refresh_service` + `refresh_analysis` | `refresh_controller` / `routes/refreshes.py` | `pages/refreshes.js` |
+| `RefreshWave` 刷新波次 | `refresh_waves` | `models/refresh.py` | 同上 | `refresh_service` | `refresh_controller` | `pages/refreshes.js` |
+| `MetricRefreshResult` 指标结果快照 | `metric_refresh_results` | `models/metric_refresh_result.py` | 只读出参（dict） | `refresh_service` + `report_service` | `refresh_controller` / `report_controller` | `pages/refreshes.js` |
 
 横切表：`users`、`audit_logs`、`runs`（校验运行）。
 
@@ -76,18 +80,41 @@ UNBALANCED_PAREN / SELF_REFERENCE / NO_FIELD`。
 - **影响面** = 下游报表按权重求和（核心报表 ×3），`score >= 8` high、`>= 3` medium、否则 low；
 - 字段影响面：`impact_of_field('dwd.order.amount')` → 3 个指标 / 5 张报表 / 11 分 / high（验收数字）。
 
-## 6. 页面（6）
+### 算法 C｜月结刷新编排（`backend/src/services/refresh_analysis.py`）
+
+输入一批变更点（上游字段 `field` 或基础指标 `metric`）：
+
+1. **完整下游闭包**：沿 `指标 → 被引用指标` 的反向边走到底，直接命中的和
+   第二、三层间接下游都进入闭包（不再只重算直接引用者）；
+2. **依赖顺序波次**：对闭包做 Kahn 分层，同一波互不依赖，下一波只依赖前面波次；
+   每波带 `depends_on` 与一句可读解释（第几波 / 依赖哪些已完成上游）；
+3. **只隔离受影响分支**：依赖环（SCC）成员、缺失引用、解析失败的指标及其下游标为
+   `isolated`（含环路径 / 缺失引用 / blocked_by 明细），其余分支照常排波、照常执行；
+4. **可解释来源**：每个指标记录 `origin`（直接变更点或 via 哪个上游）与最终 `change_points`。
+
+### 算法 C｜幂等执行（`backend/src/services/refresh_service.py`）
+
+- 一批变更（周期 + 归一化变更点集合）只有一条 `refresh_batches` 记录；
+  重复提交返回 `created=false / reused=true`，**不新增刷新记录**；
+- 波次级续跑：`completed` 的波次直接跳过（**不重复执行已完成波次**），
+  未开始/失败的波次按顺序继续；单波失败只让依赖它的后续波次 `skipped`；
+- 每个指标产出结果指纹 = 自身公式签名 + 上游结果指纹，写入
+  `metric_refresh_results`；报表按快照暴露 `refreshed_metric_count / stale_metric_codes`，
+  哪几张报表还拿着旧结果一眼可见。
+
+## 6. 页面（7）
 
 | # | 路由 | 说明 |
 |---|---|---|
 | 1 | `#/login` | 登录：卡片柜抽屉 + 索书单表单 |
-| 2 | `#/overview` | 总览：指标 / 报表 / 同名冲突 / 依赖环 / 高风险 / 待审批，按等级与类型的条形、环路径、最近运行、7 天趋势 |
+| 2 | `#/overview` | 总览：指标 / 报表 / 同名冲突 / 依赖环 / 高风险 / 待审批，按等级与类型的条形、环路径、最近校验运行、最近月结刷新、7 天趋势 |
 | 3 | `#/metrics` | 指标注册：筛选 + 目录列表 + 详情抽屉（DSL 编辑、算法 A 解析预览、保存新版本、注册新指标） |
 | 4 | `#/graph` | 依赖图：节点/边统计、SCC 环路径卡、节点表 + 展开抽屉、依赖边清单（可按边类型筛选） |
 | 5 | `#/conflicts` | 冲突与影响面：严重度/类型筛选、两份口径并排对照、差异明细、影响面、一键提交变更单 |
-| 6 | `#/changes` | 变更单与导出：跑校验、变更单列表 + 审批抽屉、4 张 CSV 导出、审计尾迹（admin） |
+| 6 | `#/refreshes` | 月结刷新：选上游字段/基础指标 → 预览影响（完整下游闭包/依赖波次/隔离分支）→ 执行；刷新记录 + 抽屉（波次执行与隔离明细） |
+| 7 | `#/changes` | 变更单与导出：跑校验、变更单列表 + 审批抽屉、5 张 CSV 导出、审计尾迹（admin） |
 
-共享组件（`site/js/ui.js`）：`table` / `drawer` / `filterBar` 同时被指标注册、依赖图、冲突、变更单四页复用。
+共享组件（`site/js/ui.js`）：`table` / `drawer` / `filterBar` 同时被指标注册、依赖图、冲突、月结刷新、变更单五页复用。
 
 ## 7. 共享枚举出现位置
 
@@ -100,6 +127,10 @@ UNBALANCED_PAREN / SELF_REFERENCE / NO_FIELD`。
 | 冲突类型 `filter/field/agg/dep_diff` | `ConflictKind` | `ENUMS.conflictKind` | 冲突页筛选、总览差异类型、导出 |
 | 变更类型/状态 | `ChangeKind` / `ChangeStatus` | `ENUMS.changeKind` / `ENUMS.changeStatus` | 变更单页筛选、抽屉、导出 |
 | 严重度 `high/medium/low` | `Severity` | `ENUMS.severity` | 冲突/环/变更单徽标、总览 |
+| 刷新状态 `pending/running/completed/failed` | `RefreshStatus` | `ENUMS.refreshStatus` | 月结刷新页筛选/抽屉 |
+| 波次状态 `pending/running/completed/skipped/failed` | `RefreshWaveStatus` | `ENUMS.waveStatus` | 月结刷新抽屉 |
+| 变更点 `metric/field` | `ChangePointKind` | `ENUMS.changePointKind` | 月结刷新表单 |
+| 隔离原因 `cycle/missing_ref/parse_error/upstream_isolated` | `RefreshReason` | `ENUMS.isolateReason` | 月结刷新抽屉、导出 |
 | 角色 `admin/analyst/viewer` | `Role` + `constants/roles.py` | `js/config.js::PERMISSIONS` | 导航、按钮、403 |
 
 ## 8. seed 口径（`SEED_SUMMARY` 字段映射）
@@ -152,7 +183,7 @@ docker compose exec -T backend python -m pytest tests -q
 | 前端 | 原生 HTML5 + CSS（oklch 令牌 / 卡片目录版式）+ ES Modules；无框架、无打包器；仅 Google Fonts |
 | 字体 | Fraunces（display）+ Noto Serif SC（body）+ JetBrains Mono（索引号） |
 | 后端 | Python 3.11、FastAPI 0.115、SQLAlchemy 2.0、PyJWT、passlib(bcrypt) |
-| 异步 | Celery 5.4 + Redis（10s 心跳、每日 07:40 自动校验） |
+| 异步 | Celery 5.4 + Redis（10s 心跳、每日 07:40 自动校验、每月 1 日 08:10 月结刷新） |
 | 数据库 | PostgreSQL 16 |
 | 部署 | Docker Compose，恰好 5 服务（frontend / backend / worker / db / redis） |
 
@@ -163,6 +194,7 @@ backend/
   src/{config,constants,controllers,middlewares,models,routes,schemas,services,utils}
     services/dsl_parser.py        # 算法 A
     services/graph_analysis.py    # 算法 B
+    services/refresh_analysis.py  # 算法 C：刷新闭包 / 波次 / 隔离
   scripts/{seed_demo.py,demo_config.py,worker_healthcheck.sh}
   migrations/  tests/
 frontend/site/{index.html,css/{tokens,app}.css,js/{config,api,store,ui,app}.js,js/pages/*.js}

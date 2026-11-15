@@ -177,6 +177,68 @@ RUN_STATUS_LABELS: dict[str, str] = {
     RunStatus.FAILED.value: "失败",
 }
 
+
+class ChangePointKind(StrEnum):
+    """月结刷新的变更点：上游数仓字段 / 基础指标。"""
+
+    METRIC = "metric"
+    FIELD = "field"
+
+
+CHANGE_POINT_KIND_LABELS: dict[str, str] = {
+    ChangePointKind.METRIC.value: "基础指标",
+    ChangePointKind.FIELD.value: "上游字段",
+}
+
+
+class RefreshStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+REFRESH_STATUS_LABELS: dict[str, str] = {
+    RefreshStatus.PENDING.value: "待执行",
+    RefreshStatus.RUNNING.value: "执行中",
+    RefreshStatus.COMPLETED.value: "已完成",
+    RefreshStatus.FAILED.value: "失败",
+}
+
+
+class RefreshWaveStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+REFRESH_WAVE_STATUS_LABELS: dict[str, str] = {
+    RefreshWaveStatus.PENDING.value: "待执行",
+    RefreshWaveStatus.RUNNING.value: "执行中",
+    RefreshWaveStatus.COMPLETED.value: "已完成",
+    RefreshWaveStatus.SKIPPED.value: "已跳过",
+    RefreshWaveStatus.FAILED.value: "失败",
+}
+
+
+class RefreshReason(StrEnum):
+    """隔离原因：只停受影响分支，其余波次继续。"""
+
+    CYCLE = "cycle"
+    MISSING_REF = "missing_ref"
+    PARSE_ERROR = "parse_error"
+    UPSTREAM_ISOLATED = "upstream_isolated"
+
+
+REFRESH_REASON_LABELS: dict[str, str] = {
+    RefreshReason.CYCLE.value: "依赖环",
+    RefreshReason.MISSING_REF.value: "缺失引用",
+    RefreshReason.PARSE_ERROR.value: "口径解析失败",
+    RefreshReason.UPSTREAM_ISOLATED.value: "上游被隔离",
+}
+
 # 报表权重：核心报表 ×3
 REPORT_WEIGHT_CORE = 3
 REPORT_WEIGHT_NORMAL = 1

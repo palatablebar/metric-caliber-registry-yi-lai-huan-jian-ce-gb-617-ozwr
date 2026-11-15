@@ -10,12 +10,14 @@ from src.constants.enums import (
     CONFLICT_KIND_LABELS,
     METRIC_DOMAIN_LABELS,
     METRIC_TIER_LABELS,
+    REFRESH_STATUS_LABELS,
     RUN_STATUS_LABELS,
     SEVERITY_LABELS,
     TRIGGER_LABELS,
 )
 from src.models.change_request import ChangeRequest
 from src.models.metric import Metric
+from src.models.refresh import RefreshBatch
 from src.models.run import Run
 from src.services import formula_service, graph_service, report_service
 from src.utils.csv_export import to_csv
@@ -139,4 +141,36 @@ def runs_csv(db: Session) -> bytes:
         ]
         for run in runs
     ]
+    return to_csv(headers, rows)
+
+
+def refreshes_csv(db: Session) -> bytes:
+    batches = db.scalars(select(RefreshBatch).order_by(RefreshBatch.id)).all()
+    headers = [
+        "刷新号", "周期", "状态", "变更点", "下游闭包指标数", "波次数", "可重算数",
+        "隔离数", "环隔离", "缺失引用隔离", "下游报表数", "操作人", "日志",
+    ]
+    rows = []
+    for batch in batches:
+        metrics = batch.metrics or {}
+        plan = batch.plan or {}
+        isolated = plan.get("isolated") or []
+        reasons = metrics.get("isolated_reasons") or {}
+        rows.append(
+            [
+                batch.refresh_no,
+                batch.period,
+                REFRESH_STATUS_LABELS.get(batch.status, batch.status),
+                " | ".join(f"{item['kind']}:{item['ref']}" for item in (batch.change_points or [])),
+                metrics.get("closure_count", len(plan.get("closure") or [])),
+                metrics.get("wave_count", len(plan.get("waves") or [])),
+                metrics.get("refreshable_count", 0),
+                len(isolated),
+                reasons.get("cycle", 0),
+                reasons.get("missing_ref", 0),
+                metrics.get("report_count", 0),
+                batch.operator_email,
+                (batch.log_text or "").replace("\n", " "),
+            ]
+        )
     return to_csv(headers, rows)

@@ -134,6 +134,11 @@ def _shortest_cycle(start: str, dep_map: dict[str, list[str]], component: set[st
     return best or [start, start]
 
 
+def shortest_cycle(start: str, dep_map: dict[str, list[str]], component: set[str]) -> list[str]:
+    """公开入口：在 SCC 内找最小真实环路径（供刷新编排复用）。"""
+    return _shortest_cycle(start, dep_map, component)
+
+
 def find_cycles(metrics: list[dict], reports_by_metric: dict[str, list[dict]]) -> list[dict]:
     dep_map = build_dep_map(metrics)
     by_code = {metric["code"]: metric for metric in metrics}

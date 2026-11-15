@@ -120,3 +120,48 @@ CREATE TABLE audit_logs (
     seed_key        VARCHAR(120) UNIQUE,
     created_at      TIMESTAMP    NOT NULL
 );
+
+-- 月结刷新（算法 C）：一批变更点 -> 一条刷新记录 -> 若干依赖波次
+CREATE TABLE refresh_batches (
+    id              SERIAL PRIMARY KEY,
+    refresh_no      VARCHAR(40)  NOT NULL UNIQUE,
+    dedupe_key      VARCHAR(64)  NOT NULL UNIQUE,      -- 周期 + 归一化变更点集合，同批变更幂等
+    period          VARCHAR(10)  NOT NULL,             -- YYYY-MM
+    trigger         VARCHAR(20)  NOT NULL,             -- manual/schedule/seed
+    status          VARCHAR(16)  NOT NULL,             -- pending/running/completed/failed
+    operator_email  VARCHAR(160) NOT NULL,
+    change_points   JSON,                              -- [{kind: metric|field, ref}]
+    plan            JSON,                              -- 闭包 / 波次 / 隔离分支
+    metrics         JSON,                              -- 执行统计与日志要点
+    log_text        TEXT,
+    started_at      TIMESTAMP    NOT NULL,
+    finished_at     TIMESTAMP
+);
+
+CREATE TABLE refresh_waves (
+    id              SERIAL PRIMARY KEY,
+    batch_id        INTEGER      NOT NULL REFERENCES refresh_batches(id) ON DELETE CASCADE,
+    "index"         INTEGER      NOT NULL,             -- 0 起，依赖深度分层
+    status          VARCHAR(16)  NOT NULL,             -- pending/running/completed/skipped/failed
+    metric_codes    JSON,
+    depends_on      JSON,
+    reasons         JSON,
+    explanation     TEXT,
+    result          JSON,                              -- 每个指标的结果指纹 / 上游指纹
+    error_text      TEXT,
+    started_at      TIMESTAMP,
+    finished_at     TIMESTAMP,
+    CONSTRAINT uq_refresh_waves_batch_index UNIQUE (batch_id, "index")
+);
+
+CREATE TABLE metric_refresh_results (
+    id                 SERIAL PRIMARY KEY,
+    metric_id          INTEGER      NOT NULL UNIQUE REFERENCES metrics(id) ON DELETE CASCADE,
+    fingerprint        VARCHAR(64)  NOT NULL DEFAULT '',
+    signature          VARCHAR(64)  NOT NULL DEFAULT '',
+    source_refresh_no  VARCHAR(40)  NOT NULL DEFAULT '',
+    source_batch_id    INTEGER      NOT NULL DEFAULT 0,
+    wave_index         INTEGER      NOT NULL DEFAULT 0,
+    upstream           JSON,
+    refreshed_at       TIMESTAMP    NOT NULL
+);

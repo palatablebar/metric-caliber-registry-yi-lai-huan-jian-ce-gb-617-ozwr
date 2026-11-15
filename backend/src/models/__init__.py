@@ -13,6 +13,8 @@ from src.models.formula import Formula  # noqa: E402
 from src.models.dependency import Dependency  # noqa: E402
 from src.models.report import Report  # noqa: E402
 from src.models.change_request import ChangeRequest  # noqa: E402
+from src.models.metric_refresh_result import MetricRefreshResult  # noqa: E402
+from src.models.refresh import RefreshBatch, RefreshWave  # noqa: E402
 from src.models.run import Run  # noqa: E402
 
 __all__ = [
@@ -25,4 +27,7 @@ __all__ = [
     "Report",
     "ChangeRequest",
     "Run",
+    "MetricRefreshResult",
+    "RefreshBatch",
+    "RefreshWave",
 ]

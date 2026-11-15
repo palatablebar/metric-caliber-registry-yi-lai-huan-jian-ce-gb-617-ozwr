@@ -9,6 +9,7 @@ const EXPORTS = [
   ['/api/exports/conflicts.csv', 'conflicts.csv', '冲突与影响面', '同名冲突、差异字段、严重度'],
   ['/api/exports/change-requests.csv', 'change-requests.csv', '变更单', '影响面与审批结论'],
   ['/api/exports/runs.csv', 'runs.csv', '校验运行记录', '解析失败、环、冲突统计'],
+  ['/api/exports/refreshes.csv', 'refreshes.csv', '月结刷新记录', '下游闭包、波次与隔离分支'],
 ];
 
 function openChange(view, ctx, change) {

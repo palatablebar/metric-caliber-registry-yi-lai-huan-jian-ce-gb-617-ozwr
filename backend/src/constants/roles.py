@@ -24,6 +24,7 @@ PERMISSIONS: dict[str, set[str]] = {
         "formula:write",
         "dependency:read", "report:read", "conflict:read",
         "run:read", "run:create",
+        "refresh:read", "refresh:create",
         "change:read", "change:write", "change:approve",
         "export:read", "audit:read", "overview:read",
     },
@@ -32,18 +33,20 @@ PERMISSIONS: dict[str, set[str]] = {
         "formula:write",
         "dependency:read", "report:read", "conflict:read",
         "run:read", "run:create",
+        "refresh:read", "refresh:create",
         "change:read", "change:write",
         "export:read", "overview:read",
     },
     Role.VIEWER.value: {
         "metric:read", "dependency:read", "report:read", "conflict:read",
-        "run:read", "change:read", "overview:read",
+        "run:read", "refresh:read", "change:read", "overview:read",
     },
 }
 
 METRIC_WRITE_ROLES = (Role.ADMIN.value,)
 FORMULA_WRITE_ROLES = (Role.ADMIN.value, Role.ANALYST.value)
 RUN_CREATE_ROLES = (Role.ADMIN.value, Role.ANALYST.value)
+REFRESH_CREATE_ROLES = (Role.ADMIN.value, Role.ANALYST.value)
 CHANGE_WRITE_ROLES = (Role.ADMIN.value, Role.ANALYST.value)
 CHANGE_APPROVE_ROLES = (Role.ADMIN.value,)
 EXPORT_ROLES = (Role.ADMIN.value, Role.ANALYST.value)
